@@ -7,12 +7,15 @@ import com.hazelcast.instance.TestUtil;
 import com.hazelcast.test.HazelcastJUnit4ClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
 import com.hazelcast.test.annotation.ParallelTest;
+import info.jerrinot.hazelcast.longmaxupdater.ExtendedHazelcastInstance;
+import info.jerrinot.hazelcast.longmaxupdater.HazelcastExtender;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 import info.jerrinot.hazelcast.longmaxupdater.ILongMaxUpdater;
 import info.jerrinot.hazelcast.longmaxupdater.spi.LongMaxUpdaterService;
 
+import java.util.Arrays;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -25,8 +28,8 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
 
     @Test
     public void testMaxThenReset() {
-        final HazelcastInstance instance = createHazelcastInstanceFactory(1).newInstances(getConfig())[0];
-        ILongMaxUpdater updater = getLongMaxUpdater(instance, "updater");
+        final ExtendedHazelcastInstance instance = HazelcastExtender.extend(createHazelcastInstanceFactory(1).newInstances(getConfig())[0]);
+        ILongMaxUpdater updater = instance.getLongMaxUpdater("updater");
 
         long maxValue = Long.MIN_VALUE;
         Random random = new Random();
@@ -43,7 +46,7 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
 
     @Test
     public void testMutipleThreadLongMaxUpdater() throws Exception {
-        final HazelcastInstance instance = createHazelcastInstanceFactory(3).newInstances(getConfig())[0];
+        final ExtendedHazelcastInstance instance = HazelcastExtender.extend(createHazelcastInstanceFactory(3).newInstances(getConfig())[0]);
 
         final int noOfThreads = 5;
         final String updaterName = "updater";
@@ -59,7 +62,7 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
                 }
                 @Override
                 public void run() {
-                    ILongMaxUpdater updater = getLongMaxUpdater(instance, updaterName);
+                    ILongMaxUpdater updater = instance.getLongMaxUpdater(updaterName);
                     for (int j = 0; j < 1000; j++) {
                         long value = random.nextLong();
                         updater.update(value);
@@ -71,7 +74,7 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
         }
         countDownLatch.await(50, TimeUnit.SECONDS);
 
-        long maxFromHZ = getLongMaxUpdater(instance, updaterName).max();
+        long maxFromHZ = instance.getLongMaxUpdater(updaterName).max();
         long maxAsRecorded = findMax(maxArray);
         assertEquals(maxAsRecorded, maxFromHZ);
     }
@@ -84,11 +87,11 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
         int maximum = 50;
         HazelcastInstance[] instances = createHazelcastInstanceFactory(noOfInstances).newInstances(getConfig());
 
-        HazelcastInstance instance = instances[0];
+        ExtendedHazelcastInstance instance = HazelcastExtender.extend(instances[0]);
         //create updaters
         ILongMaxUpdater[] updaters = new ILongMaxUpdater[noOfUpdaters];
         for (int i = 0; i < noOfUpdaters; i++) {
-            ILongMaxUpdater updater = getLongMaxUpdater(instance, "updater" + i);
+            ILongMaxUpdater updater = instance.getLongMaxUpdater("updater" + i);
             updaters[i] = updater;
         }
 
@@ -112,10 +115,10 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
                 instances[i].shutdown();
             }
         }
-        instance = instances[noOfInstances-1]; //get the last (still alive) instance
+        instance = HazelcastExtender.extend(instances[noOfInstances-1]); //get the last (still alive) instance
 
         for (int i = 0; i < noOfUpdaters; i++) {
-            long max = getLongMaxUpdater(instance, "updater" + i).max();
+            long max = instance.getLongMaxUpdater("updater" + i).max();
             assertEquals("Instance no "+i+" has a wrong value", maximum, max);
         }
 
@@ -126,11 +129,6 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
         long max = Long.MIN_VALUE;
         for (long value : maxArray) max = Math.max(max, value);
         return max;
-    }
-
-    private ILongMaxUpdater getLongMaxUpdater(HazelcastInstance instance, String name) {
-        ILongMaxUpdater update =  instance.getDistributedObject(LongMaxUpdaterService.SERVICE_NAME, name);
-        return update;
     }
 
     private Config getConfig() {
