@@ -75,6 +75,42 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
         assertEquals(maxAsRecorded, maxFromHZ);
     }
 
+    @Test
+    public void testMigrations() {
+        int noOfUpdaters = 100;
+        int noOfInstances = 5;
+        int maximum = 50;
+        HazelcastInstance[] instances = createHazelcastInstanceFactory(noOfInstances).newInstances(getConfig());
+
+        HazelcastInstance instance = instances[0];
+        //create updaters
+        ILongMaxUpdater[] updaters = new ILongMaxUpdater[noOfUpdaters];
+        for (int i = 0; i < noOfUpdaters; i++) {
+            ILongMaxUpdater updater = getLongMaxUpdater(instance, "updater" + i);
+            updaters[i] = updater;
+        }
+
+        //call 0..99 on each updater
+        for (int i = 0; i <= maximum; i++) {
+            for (int j = 0; j < noOfUpdaters; j++) {
+                updaters[j].update(i);
+            }
+        }
+
+        //shutdown all, but last instance
+        for (int i = 0; i < noOfInstances-1; i++) {
+            instances[i].shutdown();
+        }
+        instance = instances[noOfInstances-1]; //get the last (still alive) instance
+
+        for (int i = 0; i < noOfUpdaters; i++) {
+            long max = getLongMaxUpdater(instance, "updater" + i).max();
+            assertEquals("Instance no "+i+" has a wrong value", maximum, max);
+        }
+
+
+    }
+
     private long findMax(long[] maxArray) {
         long max = Long.MIN_VALUE;
         for (long value : maxArray) max = Math.max(max, value);
