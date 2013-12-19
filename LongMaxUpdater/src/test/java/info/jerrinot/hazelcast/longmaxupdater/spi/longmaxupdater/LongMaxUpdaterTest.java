@@ -99,6 +99,11 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
             }
         }
 
+        //this should be ignored by the updates
+        for (int j = 0; j < noOfUpdaters; j++) {
+            updaters[j].update(maximum - 1);
+        }
+
         //kill or shutdown all, but last instance
         for (int i = 0; i < noOfInstances-1; i++) {
             if (i == 0)  {
