@@ -3,6 +3,7 @@ package info.jerrinot.hazelcast.longmaxupdater.spi.longmaxupdater;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.ServiceConfig;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.instance.TestUtil;
 import com.hazelcast.test.HazelcastJUnit4ClassRunner;
 import com.hazelcast.test.HazelcastTestSupport;
 import com.hazelcast.test.annotation.ParallelTest;
@@ -75,9 +76,10 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
         assertEquals(maxAsRecorded, maxFromHZ);
     }
 
+
     @Test
     public void testMigrations() {
-        int noOfUpdaters = 100;
+        int noOfUpdaters = 500;
         int noOfInstances = 5;
         int maximum = 50;
         HazelcastInstance[] instances = createHazelcastInstanceFactory(noOfInstances).newInstances(getConfig());
@@ -97,9 +99,13 @@ public class LongMaxUpdaterTest extends HazelcastTestSupport {
             }
         }
 
-        //shutdown all, but last instance
+        //kill or shutdown all, but last instance
         for (int i = 0; i < noOfInstances-1; i++) {
-            instances[i].shutdown();
+            if (i == 0)  {
+                TestUtil.terminateInstance(instances[0]); //always kill the 1st instance
+            } else {
+                instances[i].shutdown();
+            }
         }
         instance = instances[noOfInstances-1]; //get the last (still alive) instance
 
